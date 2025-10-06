@@ -147,17 +147,68 @@
             width: 100%;
             height: 100%;
             pointer-events: none;
+            object-fit: contain;
         }
         
-        .resize-handle {
+        .draggable.selected {
+            outline: 2px solid #1a4d2e;
+            outline-offset: 2px;
+        }
+        
+        .resize-corners {
+            display: none;
             position: absolute;
-            bottom: 0;
-            right: 0;
-            width: 20px;
-            height: 20px;
-            background: #1a4d2e;
-            cursor: nwse-resize;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            pointer-events: none;
+        }
+        
+        .draggable.selected .resize-corners {
+            display: block;
+        }
+        
+        .corner {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: white;
+            border: 2px solid #1a4d2e;
             border-radius: 50%;
+            pointer-events: all;
+        }
+        
+        .corner.nw { top: -5px; left: -5px; cursor: nw-resize; }
+        .corner.ne { top: -5px; right: -5px; cursor: ne-resize; }
+        .corner.sw { bottom: -5px; left: -5px; cursor: sw-resize; }
+        .corner.se { bottom: -5px; right: -5px; cursor: se-resize; }
+        
+        .flip-handle {
+            display: none;
+            position: absolute;
+            top: -30px;
+            right: -5px;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border: 2px solid #1a4d2e;
+            cursor: pointer;
+            border-radius: 50%;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: #1a4d2e;
+            pointer-events: all;
+        }
+        
+        .draggable.selected .flip-handle {
+            display: flex;
+        }
+        
+        .flip-handle:hover {
+            background: #f0f0f0;
         }
         
         .export-btn {
@@ -226,8 +277,11 @@
         
         let bgImage = null;
         let activeElement = null;
+        let selectedElement = null;
         let offsetX, offsetY;
         let isResizing = false;
+        let resizeCorner = null;
+        let startWidth, startHeight, startX, startY, startMouseX, startMouseY;
         
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
@@ -257,47 +311,91 @@
         }
         
         function addHat() {
-            createAccessory('https://cdn.prod.website-files.com/6740d85c4e3daeef29a89470/68e326640291674fb3577ce4_321321%20(4).png', 150, true);
+            createAccessory('https://cdn.prod.website-files.com/6740d85c4e3daeef29a89470/68e326640291674fb3577ce4_321321%20(4).png', 150);
         }
         
         function addGlasses() {
-            createAccessory('🕶️', 80, false);
+            createAccessory('https://cdn.prod.website-files.com/6740d85c4e3daeef29a89470/68e328699caeb5a75142a9eb_facingleft.png', 120);
         }
         
-        function createAccessory(content, size, isImage) {
+        function createAccessory(src, size) {
             const div = document.createElement('div');
             div.className = 'draggable';
             div.style.width = size + 'px';
             div.style.height = size + 'px';
             div.style.left = '175px';
             div.style.top = '50px';
+            div.dataset.flipped = 'false';
             
-            if (isImage) {
-                const img = document.createElement('img');
-                img.src = content;
-                img.style.width = '100%';
-                img.style.height = '100%';
-                img.style.objectFit = 'contain';
-                div.appendChild(img);
-            } else {
-                div.style.fontSize = size + 'px';
-                div.innerHTML = content;
-            }
+            const img = document.createElement('img');
+            img.src = src;
+            div.appendChild(img);
             
-            const handle = document.createElement('div');
-            handle.className = 'resize-handle';
-            div.appendChild(handle);
+            const resizeCorners = document.createElement('div');
+            resizeCorners.className = 'resize-corners';
+            resizeCorners.innerHTML = `
+                <div class="corner nw"></div>
+                <div class="corner ne"></div>
+                <div class="corner sw"></div>
+                <div class="corner se"></div>
+            `;
+            div.appendChild(resizeCorners);
+            
+            const flipHandle = document.createElement('div');
+            flipHandle.className = 'flip-handle';
+            flipHandle.innerHTML = '↔';
+            flipHandle.title = 'Flip';
+            div.appendChild(flipHandle);
             
             container.appendChild(div);
             
             div.addEventListener('mousedown', startDrag);
-            handle.addEventListener('mousedown', startResize);
+            flipHandle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                flipAccessory(div);
+            });
+            
+            const corners = div.querySelectorAll('.corner');
+            corners.forEach(corner => {
+                corner.addEventListener('mousedown', (e) => {
+                    startResize(e, div, corner.className.split(' ')[1]);
+                });
+            });
+            
+            selectElement(div);
+        }
+        
+        function selectElement(element) {
+            if (selectedElement) {
+                selectedElement.classList.remove('selected');
+            }
+            selectedElement = element;
+            if (element) {
+                element.classList.add('selected');
+            }
+        }
+        
+        function flipAccessory(element) {
+            const isFlipped = element.dataset.flipped === 'true';
+            const img = element.querySelector('img');
+            
+            if (isFlipped) {
+                img.style.transform = 'scaleX(1)';
+                element.dataset.flipped = 'false';
+            } else {
+                img.style.transform = 'scaleX(-1)';
+                element.dataset.flipped = 'true';
+            }
         }
         
         function startDrag(e) {
-            if (e.target.classList.contains('resize-handle')) return;
+            if (e.target.classList.contains('corner') || e.target.classList.contains('flip-handle')) {
+                return;
+            }
             
             activeElement = e.currentTarget;
+            selectElement(activeElement);
+            
             const rect = activeElement.getBoundingClientRect();
             const containerRect = container.getBoundingClientRect();
             offsetX = e.clientX - rect.left;
@@ -309,7 +407,7 @@
         }
         
         function drag(e) {
-            if (!activeElement) return;
+            if (!activeElement || isResizing) return;
             
             const containerRect = container.getBoundingClientRect();
             let x = e.clientX - containerRect.left - offsetX;
@@ -328,9 +426,18 @@
             document.removeEventListener('mouseup', stopDrag);
         }
         
-        function startResize(e) {
-            activeElement = e.target.parentElement;
+        function startResize(e, element, corner) {
             isResizing = true;
+            activeElement = element;
+            resizeCorner = corner;
+            selectElement(element);
+            
+            startWidth = element.offsetWidth;
+            startHeight = element.offsetHeight;
+            startX = parseFloat(element.style.left);
+            startY = parseFloat(element.style.top);
+            startMouseX = e.clientX;
+            startMouseY = e.clientY;
             
             document.addEventListener('mousemove', resize);
             document.addEventListener('mouseup', stopResize);
@@ -341,35 +448,59 @@
         function resize(e) {
             if (!activeElement || !isResizing) return;
             
-            const containerRect = container.getBoundingClientRect();
-            const x = e.clientX - containerRect.left;
-            const y = e.clientY - containerRect.top;
+            const deltaX = e.clientX - startMouseX;
+            const deltaY = e.clientY - startMouseY;
             
-            const left = parseFloat(activeElement.style.left);
-            const top = parseFloat(activeElement.style.top);
+            let newWidth = startWidth;
+            let newHeight = startHeight;
+            let newX = startX;
+            let newY = startY;
             
-            const newWidth = Math.max(30, x - left);
-            const newHeight = Math.max(30, y - top);
+            if (resizeCorner === 'se') {
+                newWidth = Math.max(30, startWidth + deltaX);
+                newHeight = Math.max(30, startHeight + deltaY);
+            } else if (resizeCorner === 'sw') {
+                newWidth = Math.max(30, startWidth - deltaX);
+                newHeight = Math.max(30, startHeight + deltaY);
+                newX = startX + (startWidth - newWidth);
+            } else if (resizeCorner === 'ne') {
+                newWidth = Math.max(30, startWidth + deltaX);
+                newHeight = Math.max(30, startHeight - deltaY);
+                newY = startY + (startHeight - newHeight);
+            } else if (resizeCorner === 'nw') {
+                newWidth = Math.max(30, startWidth - deltaX);
+                newHeight = Math.max(30, startHeight - deltaY);
+                newX = startX + (startWidth - newWidth);
+                newY = startY + (startHeight - newHeight);
+            }
             
             const size = Math.max(newWidth, newHeight);
             
             activeElement.style.width = size + 'px';
             activeElement.style.height = size + 'px';
-            
-            const img = activeElement.querySelector('img');
-            if (!img) {
-                activeElement.style.fontSize = size + 'px';
-            }
+            activeElement.style.left = newX + 'px';
+            activeElement.style.top = newY + 'px';
         }
         
         function stopResize() {
             isResizing = false;
             activeElement = null;
+            resizeCorner = null;
             document.removeEventListener('mousemove', resize);
             document.removeEventListener('mouseup', stopResize);
         }
         
+        container.addEventListener('mousedown', (e) => {
+            if (e.target === container || e.target === canvas) {
+                selectElement(null);
+            }
+        });
+        
         async function exportImage() {
+            if (selectedElement) {
+                selectElement(null);
+            }
+            
             const canvasEl = await html2canvas(container, {
                 backgroundColor: null,
                 scale: 2
