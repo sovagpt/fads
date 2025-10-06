@@ -82,7 +82,7 @@
             display: block;
             width: 100%;
             padding: 12px;
-            background: #1a4d2e;
+            background: #51d492;
             color: white;
             border: none;
             border-radius: 8px;
@@ -90,10 +90,11 @@
             font-size: 16px;
             margin-bottom: 10px;
             transition: background 0.3s;
+            text-align: center;
         }
         
         .upload-btn:hover {
-            background: #0f3820;
+            background: #3cb876;
         }
         
         #fileInput {
@@ -109,7 +110,7 @@
         .accessory-btn {
             flex: 1;
             padding: 10px;
-            background: #1a4d2e;
+            background: #51d492;
             color: white;
             border: none;
             border-radius: 8px;
@@ -119,7 +120,7 @@
         }
         
         .accessory-btn:hover {
-            background: #0f3820;
+            background: #3cb876;
         }
         
         .canvas-container {
@@ -138,6 +139,7 @@
             left: 0;
             width: 100%;
             height: 100%;
+            border-radius: 10px;
         }
         
         .draggable {
@@ -218,7 +220,7 @@
             display: block;
             width: 100%;
             padding: 15px;
-            background: #1a4d2e;
+            background: #51d492;
             color: white;
             border: none;
             border-radius: 8px;
@@ -229,7 +231,7 @@
         }
         
         .export-btn:hover {
-            background: #0f3820;
+            background: #3cb876;
         }
         
         .export-btn:disabled {
@@ -332,6 +334,7 @@
             
             const img = document.createElement('img');
             img.src = src;
+            img.style.transition = 'transform 0.2s';
             div.appendChild(img);
             
             const resizeCorners = document.createElement('div');
@@ -501,14 +504,19 @@
                 selectElement(null);
             }
             
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
             const canvasEl = await html2canvas(container, {
                 backgroundColor: null,
-                scale: 2
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                logging: false
             });
             
             const link = document.createElement('a');
             link.download = 'alonify-pfp.png';
-            link.href = canvasEl.toDataURL();
+            link.href = canvasEl.toDataURL('image/png');
             link.click();
         }
     </script>
